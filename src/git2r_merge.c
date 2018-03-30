@@ -17,7 +17,6 @@
  */
 
 #include <git2.h>
-#include "buffer.h"
 
 #include "git2r_arg.h"
 #include "git2r_commit.h"
@@ -124,7 +123,8 @@ static int git2r_fast_forward_merge(
 {
     int error;
     const git_oid *oid;
-    git_buf buf = GIT_BUF_INIT;
+    char *buf = NULL;
+    size_t buf_len;
     git_commit *commit = NULL;
     git_tree *tree = NULL;
     git_reference *reference = NULL;
@@ -150,8 +150,10 @@ static int git2r_fast_forward_merge(
             goto cleanup;
     }
 
-    error = git_buf_printf(&buf, "%s: Fast-forward", log_message);
-    if (error)
+    buf_len = strlen(log_message) + sizeof(": Fast-forward");
+    buf = malloc(buf_len);
+    error = snprintf(buf, buf_len, "%s: Fast-forward", log_message);
+    if (error < 0 || error >= buf_len)
         goto cleanup;
 
     if (GIT_ENOTFOUND == error) {
@@ -161,7 +163,7 @@ static int git2r_fast_forward_merge(
             "HEAD",
             git_commit_id(commit),
             0, /* force */
-            buf.ptr);
+            buf);
     } else {
         git_reference *target_ref = NULL;
 
@@ -169,7 +171,7 @@ static int git2r_fast_forward_merge(
             &target_ref,
             reference,
             git_commit_id(commit),
-            buf.ptr);
+            buf);
 
         if (target_ref)
             git_reference_free(target_ref);
@@ -191,7 +193,8 @@ static int git2r_fast_forward_merge(
         Rf_ScalarString(NA_STRING));
 
 cleanup:
-    git_buf_free(&buf);
+    if (buf)
+        free(buf);
     git_commit_free(commit);
     git_reference_free(reference);
     git_tree_free(tree);
@@ -490,7 +493,8 @@ SEXP git2r_merge_branch(SEXP branch, SEXP merger, SEXP commit_on_success, SEXP f
     int error, nprotect = 0;
     SEXP result = R_NilValue;
     const char *name;
-    git_buf buf = GIT_BUF_INIT;
+    char *buf = NULL;
+    size_t buf_len;
     git_branch_t type;
     git_annotated_commit **merge_heads = NULL;
     git_reference *reference = NULL;
@@ -531,8 +535,10 @@ SEXP git2r_merge_branch(SEXP branch, SEXP merger, SEXP commit_on_success, SEXP f
     if (error)
         goto cleanup;
 
-    error = git_buf_printf(&buf, "merge %s", name);
-    if (error)
+    buf_len = strlen(name) + sizeof("merge ");
+    buf = malloc(buf_len);
+    error = snprintf(buf, buf_len, "merge %s", name);
+    if (error < 0 || error >= buf_len)
         goto cleanup;
 
     PROTECT(result = Rf_mkNamed(VECSXP, git2r_S3_items__git_merge_result));
@@ -545,13 +551,14 @@ SEXP git2r_merge_branch(SEXP branch, SEXP merger, SEXP commit_on_success, SEXP f
         (const git_annotated_commit **)merge_heads,
         1,
         GIT_MERGE_PREFERENCE_NONE,
-        buf.ptr,
+        buf,
         who,
         LOGICAL(commit_on_success)[0],
         LOGICAL(fail)[0]);
 
 cleanup:
-    git_buf_free(&buf);
+    if (buf)
+        free(buf);
     git_signature_free(who);
     git2r_merge_heads_free(merge_heads, 1);
     git_reference_free(reference);

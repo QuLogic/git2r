@@ -20,7 +20,7 @@
 #include <Rinternals.h>
 
 #include <git2.h>
-#include "buffer.h"
+#define GIT_UNUSED(x)
 
 #include "git2r_cred.h"
 #include "git2r_objects.h"
@@ -79,42 +79,31 @@ static int git2r_cred_env(
 {
     if (GIT_CREDTYPE_USERPASS_PLAINTEXT & allowed_types) {
         int error;
-        git_buf username = GIT_BUF_INIT;
-        git_buf password = GIT_BUF_INIT;
+        const char *username = NULL;
+        const char *password = NULL;
 
         /* Read value of the username environment variable */
-        error = git__getenv(
-            &username,
+        username = getenv(
             CHAR(STRING_ELT(git2r_get_list_element(credentials, "username"), 0)));
-        if (error)
-            goto cleanup;
-
-        if (!git_buf_len(&username)) {
+        if (username == NULL || username[0] == '\0') {
             error = -1;
             goto cleanup;
         }
 
         /* Read value of the password environment variable */
-        error = git__getenv(
-            &password,
+        password = getenv(
             CHAR(STRING_ELT(git2r_get_list_element(credentials, "password"), 0)));
-        if (error)
-            goto cleanup;
-
-        if (!git_buf_len(&password)) {
+        if (password == NULL || password[0] == '\0') {
             error = -1;
             goto cleanup;
         }
 
         error = git_cred_userpass_plaintext_new(
             cred,
-            username.ptr,
-            password.ptr);
+            username,
+            password);
 
     cleanup:
-        git_buf_free(&username);
-        git_buf_free(&password);
-
         if (error)
             return -1;
 
@@ -139,21 +128,20 @@ static int git2r_cred_token(
 {
     if (GIT_CREDTYPE_USERPASS_PLAINTEXT & allowed_types) {
         int error;
-        git_buf token = GIT_BUF_INIT;
+        const char *token = NULL;
 
         /* Read value of the personal access token from the
          * environment variable */
-        error = git__getenv(
-            &token,
+        token = getenv(
             CHAR(STRING_ELT(git2r_get_list_element(credentials, "token"), 0)));
-        if (error)
+        if (token == NULL) {
+            error = -1;
             goto cleanup;
+        }
 
         error = git_cred_userpass_plaintext_new(cred, " ", token.ptr);
 
     cleanup:
-        git_buf_free(&token);
-
         if (error)
             return -1;
 

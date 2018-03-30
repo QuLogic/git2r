@@ -25,7 +25,7 @@
 
 #include <git2.h>
 #include <git2/sys/diff.h>
-#include "cc-compat.h"
+#define GIT_UNUSED(x)
 
 #include <stdlib.h>
 #include <string.h>

@@ -17,7 +17,7 @@
  */
 
 #include <git2.h>
-#include "cc-compat.h"
+#define GIT_UNUSED(x)
 
 #include "git2r_arg.h"
 #include "git2r_commit.h"

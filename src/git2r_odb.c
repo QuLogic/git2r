@@ -17,7 +17,6 @@
  */
 
 #include <git2.h>
-#include "buffer.h"
 
 #include "git2r_arg.h"
 #include "git2r_error.h"
@@ -355,7 +354,9 @@ static int git2r_odb_tree_blobs(
         switch (git_tree_entry_type(entry)) {
         case GIT_OBJ_TREE:
         {
-            git_buf buf = GIT_BUF_INIT;
+            char *buf = NULL;
+            size_t buf_len;
+            const char *sep;
             git_tree *sub_tree = NULL;
 
             error = git_tree_lookup(
@@ -365,19 +366,26 @@ static int git2r_odb_tree_blobs(
             if (error)
                 return error;
 
-            error = git_buf_joinpath(&buf, path, git_tree_entry_name(entry));
+            buf_len = strlen(path) + strlen(git_tree_entry_name(entry)) + 2;
+            buf = malloc(buf_len);
+            if (strlen(path)) {
+                sep = "/";
+            } else {
+                sep = "";
+            }
+            error = snprintf(buf, buf_len, "%s%s%s", path, sep, git_tree_entry_name(entry));
 
-            if (GIT_OK == error) {
+            if (error >= 0 && error < buf_len) {
                 error = git2r_odb_tree_blobs(
                     sub_tree,
-                    buf.ptr,
+                    buf,
                     commit,
                     author,
                     when,
                     data);
             }
 
-            git_buf_free(&buf);
+            free(buf);
             git_tree_free(sub_tree);
 
             if (error)
